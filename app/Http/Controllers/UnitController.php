@@ -18,7 +18,7 @@ class UnitController extends BaseController
         // Validate the authorization token
         $token = str_replace('Bearer ', '', $authHeader);
         $decodedToken = $this->secret($token, 'decryption');
-        if (!$decodedToken) {
+        if (!$decodedToken || $decodedToken != 'login-sso-itp') {
             return response()->json(['error' => 'Invalid token'], 401);
         }
         
@@ -37,14 +37,13 @@ class UnitController extends BaseController
         // Inisialisasi query
         $query = SimpegPosisiJabatan::select($columns);
 
-        // Jika ada search keyword, apply ke semua kolom yang dipilih
+        // Jika ada search keyword, apply hanya ke kolom Nama
         if ($search) {
-            $query->where(function ($q) use ($search, $columns) {
-                foreach ($columns as $col) {
-                    $q->orWhere($col, 'LIKE', '%' . $search . '%');
-                }
-            });
+            $query->where('Nama', 'LIKE', '%' . $search . '%');
         }
+
+        // Hitung total data sebelum pagination/limit
+        $total = $query->count();
 
         // Eksekusi query
         $data = $query

@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\ViewPegawai;
+use App\Models\SimpegPosisiJabatan;
+use App\Models\SimpegJabatan;
 
 class UserController extends BaseController
 {
@@ -18,7 +20,7 @@ class UserController extends BaseController
         // Validate the authorization token
         $token = str_replace('Bearer ', '', $authHeader);
         $decodedToken = $this->secret($token, 'decryption');
-        if (!$decodedToken) {
+        if (!$decodedToken || $decodedToken != 'login-sso-itp') {
             return response()->json(['error' => 'Invalid token'], 401);
         }
         
@@ -34,19 +36,42 @@ class UserController extends BaseController
 
         $query = ViewPegawai::select($columns);
 
-        // Jika ada pencarian
+        // Jika ada pencarian, hanya cari di kolom emailG
         if ($search) {
-            $query->where(function ($q) use ($search, $columns) {
-                foreach ($columns as $col) {
-                    $q->orWhere($col, 'LIKE', '%' . $search . '%');
-                }
-            });
+            $query->where('emailG', 'LIKE', '%' . $search . '%');
         }
 
-        $data = $query
+        // Hitung total objek sebelum menerapkan limit
+        $total = $query->count();
+
+        $pegawaiData = $query
             ->orderBy($orderBy, $sort)
             ->limit($limit)
             ->get();
+
+        // Tambahkan data Posisi dan Jabatan ke setiap pegawai
+        $data = $pegawaiData->map(function ($pegawai) {
+            // Ambil data Posisi berdasarkan PosisiID
+            $posisi = SimpegPosisiJabatan::find($pegawai->PosisiID);
+            
+            // Ambil data Jabatan berdasarkan JabatanID
+            $jabatan = SimpegJabatan::find($pegawai->JabatanID);
+            
+            // Tambahkan data Posisi dan Jabatan ke objek pegawai
+            $pegawai->Posisi = $posisi ? [
+                'ID' => $posisi->PosisiID,
+                'Nama' => $posisi->Nama
+            ] : null;
+            
+            $pegawai->Jabatan = $jabatan ? [
+                'ID' => $jabatan->JabatanID,
+                'Nama' => $jabatan->Nama,
+                'Struktural' => $jabatan->Struktural,
+                'Senat' => $jabatan->Senat
+            ] : null;
+            
+            return $pegawai;
+        });
 
         return response()->json($data);
     }
