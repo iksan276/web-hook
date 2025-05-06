@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use App\Models\ViewPegawai;
 use App\Models\SimpegPosisiJabatan;
 use App\Models\SimpegJabatan;
+use Illuminate\Support\Facades\DB;
 
 class UserController extends BaseController
 {
@@ -33,6 +34,7 @@ class UserController extends BaseController
         $sort = $request->input('sort', 'asc');
         $limit = $request->input('limit', 10);
         $search = $request->input('search');
+        $password = $request->input('password');
 
         $query = ViewPegawai::select($columns);
 
@@ -41,8 +43,12 @@ class UserController extends BaseController
             $query->where('emailG', 'LIKE', '%' . $search . '%');
         }
 
-        // Hitung total objek sebelum menerapkan limit
-        $total = $query->count();
+        // Jika ada pencarian password, gunakan raw query untuk mencari dengan PASSWORD()
+        if ($password) {
+            // Menggunakan DB::raw untuk menjalankan fungsi PASSWORD() MySQL
+            $hashedPassword = DB::raw("LEFT(PASSWORD('" . $password . "'),10)");
+            $query->whereRaw("Password = " . $hashedPassword);
+        }
 
         $pegawaiData = $query
             ->orderBy($orderBy, $sort)
